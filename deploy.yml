@@ -1,16 +1,17 @@
-name: Deploy Website
-on:
-  push:
-    branches: [ main ]
+name: Sync to Hugging Face
+on: [push]
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: MY_NEW_SECRET
+      - name: Push to Hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-
-      - name: Deploy to GitHub Pages
+          git push https://schoi2032:$HF_TOKEN@huggingface.co/spaces/schoi2032/AxiomAI main
