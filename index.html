@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Axiom</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #fff; color: #212121; height: 100vh; display: flex; overflow: hidden; }
+
+    /* Sidebar */
+    #sidebar { width: 256px; min-width: 256px; background: #f7f7f7; border-right: 1px solid #e5e5e5; display: flex; flex-direction: column; transition: width 0.25s; overflow: hidden; }
+    #sidebar.collapsed { width: 72px; min-width: 72px; }
+    .sidebar-header { display: flex; align-items: center; gap: 12px; padding: 20px 16px; }
+    .sidebar-logo { font-size: 22px; font-weight: 600; background: linear-gradient(90deg,#4285f4,#9b59b6,#ea4335,#fbbc05,#34a853,#4285f4); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; animation: shimmer 3s linear infinite; white-space: nowrap; }
+    @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
+    .sidebar-logo-text { font-size: 18px; font-weight: 500; white-space: nowrap; overflow: hidden; }
+    #sidebar.collapsed .sidebar-logo-text { display: none; }
+    #new-chat-btn { margin: 0 12px 16px; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border: none; background: transparent; border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 500; color: #212121; transition: background 0.15s; white-space: nowrap; }
+    #new-chat-btn:hover { background: #ebebeb; }
+    #sidebar.collapsed #new-chat-btn { justify-content: center; padding: 10px; }
+    #sidebar.collapsed #new-chat-btn span { display: none; }
+    #conversations { flex: 1; overflow-y: auto; padding: 0 8px; }
+    #conversations p.label { font-size: 11px; color: #888; padding: 4px 8px 6px; font-weight: 500; }
+    #sidebar.collapsed #conversations { display: none; }
+    .conv-item { display: flex; align-items: center; border-radius: 12px; overflow: hidden; transition: background 0.1s; }
+    .conv-item:hover, .conv-item.active { background: #ebebeb; }
+    .conv-item button.title-btn { flex: 1; text-align: left; background: none; border: none; padding: 8px 12px; font-size: 13px; color: #555; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .conv-item.active button.title-btn { color: #212121; font-weight: 500; }
+    .conv-item button.del-btn { opacity: 0; background: none; border: none; cursor: pointer; padding: 0 8px; color: #999; font-size: 16px; transition: opacity 0.15s, color 0.15s; flex-shrink: 0; }
+    .conv-item:hover button.del-btn { opacity: 1; }
+    .conv-item button.del-btn:hover { color: #d32f2f; }
+    #toggle-btn { margin: auto 12px 16px; background: none; border: none; border-radius: 999px; padding: 8px; cursor: pointer; color: #888; width: calc(100% - 24px); display: flex; justify-content: center; transition: background 0.15s; }
+    #toggle-btn:hover { background: #ebebeb; }
+
+    /* Main area */
+    #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* Messages */
+    #messages { flex: 1; overflow-y: auto; padding: 32px 0; display: flex; flex-direction: column; gap: 32px; }
+
+    /* Welcome */
+    #welcome { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 16px; }
+    #welcome h1 { font-size: 42px; font-weight: 400; margin-bottom: 8px; }
+    #welcome h1 span { background: linear-gradient(90deg,#4285f4,#9b59b6,#ea4335,#fbbc05,#34a853,#4285f4); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; animation: shimmer 3s linear infinite; font-weight: 500; }
+    #welcome p { color: #888; font-size: 20px; font-weight: 300; margin-bottom: 40px; }
+    .suggestions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 640px; width: 100%; }
+    .suggestion-btn { display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid #e5e5e5; border-radius: 16px; background: #fafafa; cursor: pointer; text-align: left; font-size: 13px; font-weight: 500; color: #212121; transition: background 0.15s, box-shadow 0.15s; }
+    .suggestion-btn:hover { background: #f0f0f0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .suggestion-icon { width: 36px; height: 36px; background: white; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); flex-shrink: 0; }
+
+    /* Message bubbles */
+    .msg-row { display: flex; max-width: 768px; width: 100%; margin: 0 auto; padding: 0 16px; }
+    .msg-row.user { justify-content: flex-end; }
+    .msg-row.assistant { gap: 16px; }
+    .msg-avatar { width: 28px; height: 28px; flex-shrink: 0; margin-top: 2px; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+    .msg-bubble-user { background: #f0f0f0; border-radius: 24px 24px 6px 24px; padding: 14px 20px; max-width: 75%; font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+    .msg-content { flex: 1; min-width: 0; font-size: 14px; line-height: 1.7; color: #212121; }
+    .msg-content p { margin: 8px 0; }
+    .msg-content p:first-child { margin-top: 0; }
+    .msg-content ul, .msg-content ol { margin: 8px 0 8px 24px; }
+    .msg-content li { margin: 4px 0; }
+    .msg-content h1,.msg-content h2,.msg-content h3 { margin: 16px 0 8px; font-weight: 600; }
+    .msg-content h1 { font-size: 20px; }
+    .msg-content h2 { font-size: 17px; }
+    .msg-content h3 { font-size: 15px; }
+    .msg-content strong { font-weight: 600; }
+    .msg-content em { font-style: italic; }
+    .msg-content code { background: #f0f0f0; padding: 2px 6px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 12px; }
+    .msg-content pre { background: #f8f9fa; border: 1px solid #e5e5e5; border-radius: 12px; padding: 16px; overflow-x: auto; margin: 12px 0; }
+    .msg-content pre code { background: none; padding: 0; font-size: 13px; }
+    .msg-content blockquote { border-left: 4px solid rgba(66,133,244,0.3); padding-left: 16px; color: #666; font-style: italic; margin: 8px 0; }
+    .msg-content a { color: #4285f4; text-decoration: none; }
+    .msg-content a:hover { text-decoration: underline; }
+    .msg-content img { border-radius: 16px; max-width: 380px; width: 100%; border: 1px solid #e5e5e5; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .msg-actions { display: flex; gap: 2px; margin-top: 10px; opacity: 0; transition: opacity 0.15s; }
+    .msg-row.assistant:hover .msg-actions { opacity: 1; }
+    .msg-actions button { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 999px; color: #888; font-size: 14px; transition: background 0.15s, color 0.15s; }
+    .msg-actions button:hover { background: #f0f0f0; color: #212121; }
+
+    /* Typing dots */
+    .typing { display: flex; gap: 6px; align-items: center; padding: 12px 0; }
+    .typing span { width: 8px; height: 8px; border-radius: 50%; background: rgba(66,133,244,0.5); animation: bounce 1.4s ease-in-out infinite; display: inline-block; }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%,60%,100%{transform:translateY(0);opacity:0.4} 30%{transform:translateY(-6px);opacity:1} }
+
+    /* Input area */
+    #input-area { padding: 8px 16px 20px; max-width: 768px; width: 100%; margin: 0 auto; }
+    #input-box { background: #f0f0f0; border-radius: 24px; border: 1px solid #e5e5e5; display: flex; flex-direction: column; transition: border-color 0.2s, background 0.2s, box-shadow 0.2s; }
+    #input-box:focus-within { border-color: rgba(66,133,244,0.3); background: white; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    #msg-input { width: 100%; resize: none; background: transparent; border: none; outline: none; padding: 16px 20px 8px; font-size: 14px; font-family: inherit; color: #212121; max-height: 200px; line-height: 1.6; }
+    #msg-input::placeholder { color: #aaa; }
+    .input-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 0 12px 10px; }
+    .toolbar-left { display: flex; gap: 4px; }
+    .icon-btn { background: none; border: none; cursor: pointer; width: 32px; height: 32px; border-radius: 999px; display: flex; align-items: center; justify-content: center; color: #888; font-size: 16px; transition: background 0.15s, color 0.15s; }
+    .icon-btn:hover { background: white; color: #212121; }
+    #send-btn { width: 36px; height: 36px; border-radius: 999px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: opacity 0.15s; background: linear-gradient(135deg,#4285f4,#9b59b6,#ea4335,#fbbc05); color: white; }
+    #send-btn:disabled { background: #e0e0e0; color: #aaa; cursor: not-allowed; }
+    .input-hint { text-align: center; font-size: 11px; color: #bbb; margin-top: 10px; }
+
+    /* Image modal */
+    #img-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); z-index: 100; align-items: center; justify-content: center; }
+    #img-modal.open { display: flex; }
+    .modal-box { background: white; border-radius: 20px; padding: 24px; width: 100%; max-width: 420px; margin: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .modal-header h3 { font-size: 16px; font-weight: 600; }
+    .modal-header button { background: none; border: none; cursor: pointer; color: #888; font-size: 18px; line-height: 1; }
+    #img-prompt { width: 100%; resize: none; border: 1px solid #e5e5e5; border-radius: 12px; padding: 12px 16px; font-size: 14px; font-family: inherit; outline: none; background: #fafafa; transition: border-color 0.2s; }
+    #img-prompt:focus { border-color: rgba(66,133,244,0.4); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .btn-ghost { background: none; border: none; cursor: pointer; padding: 8px 16px; border-radius: 999px; font-size: 14px; color: #555; transition: background 0.15s; }
+    .btn-ghost:hover { background: #f0f0f0; }
+    .btn-primary { background: linear-gradient(135deg,#4285f4,#9b59b6,#ea4335,#fbbc05); color: white; border: none; cursor: pointer; padding: 8px 20px; border-radius: 999px; font-size: 14px; font-weight: 500; transition: opacity 0.15s; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Toast */
+    #toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px); background: #333; color: white; padding: 10px 20px; border-radius: 999px; font-size: 13px; opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none; z-index: 999; }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    @media (max-width: 640px) {
+      #sidebar { display: none; }
+      .suggestions { grid-template-columns: 1fr; }
+      #welcome h1 { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">✦</div>
+    <div class="sidebar-logo-text">Axiom</div>
+  </div>
+  <button id="new-chat-btn" onclick="newChat()">
+    <span style="font-size:18px">＋</span>
+    <span>New chat</span>
+  </button>
+  <div id="conversations"></div>
+  <button id="toggle-btn" onclick="toggleSidebar()">⟨</button>
+</div>
+
+<!-- Main -->
+<div id="main">
+  <div id="messages">
+    <div id="welcome">
+      <h1>Hello, I'm <span>Axiom</span></h1>
+      <p>How can I help you today?</p>
+      <div class="suggestions">
+        <button class="suggestion-btn" onclick="sendFromSuggestion(this)">
+          <div class="suggestion-icon">💡</div>
+          Explain quantum computing in simple terms
+        </button>
+        <button class="suggestion-btn" onclick="sendFromSuggestion(this)">
+          <div class="suggestion-icon">💻</div>
+          Write a Python function to reverse a string
+        </button>
+        <button class="suggestion-btn" onclick="sendFromSuggestion(this)">
+          <div class="suggestion-icon">✍️</div>
+          Help me write a professional bio
+        </button>
+        <button class="suggestion-btn" onclick="sendFromSuggestion(this)">
+          <div class="suggestion-icon">🌐</div>
+          What are the latest breakthroughs in AI?
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="input-area">
+    <div id="input-box">
+      <textarea id="msg-input" rows="1" placeholder="Ask Axiom" oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
+      <div class="input-toolbar">
+        <div class="toolbar-left">
+          <button class="icon-btn" title="Generate image" onclick="openImgModal()">🖼️</button>
+          <button class="icon-btn" title="Voice">🎤</button>
+        </div>
+        <button id="send-btn" onclick="sendMessage()" disabled>↑</button>
+      </div>
+    </div>
+    <p class="input-hint">Axiom may display inaccurate info. Double-check its responses.</p>
+  </div>
+</div>
+
+<!-- Image modal -->
+<div id="img-modal" onclick="closeImgModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Generate an image</h3>
+      <button onclick="closeImgModal()">✕</button>
+    </div>
+    <textarea id="img-prompt" rows="3" placeholder="Describe the image you want to generate..." onkeydown="imgPromptKey(event)"></textarea>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeImgModal()">Cancel</button>
+      <button class="btn-primary" id="gen-btn" onclick="generateImage()">Generate</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+  // ── CONFIG ── Replace with your Hugging Face API key (free at huggingface.co)
+  const HF_API_KEY = "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";
+
+  // ── STATE ──
+  let conversations = [];
+  let currentId = null;
+  let messages = [];
+  let isLoading = false;
+  let sidebarCollapsed = false;
+  let convCounter = 1;
+
+  // ── INIT ──
+  const msgInput = document.getElementById("msg-input");
+  const sendBtn = document.getElementById("send-btn");
+  const messagesEl = document.getElementById("messages");
+  const convsEl = document.getElementById("conversations");
+  const sidebar = document.getElementById("sidebar");
+  const toggleBtn = document.getElementById("toggle-btn");
+
+  msgInput.addEventListener("input", () => {
+    sendBtn.disabled = !msgInput.value.trim() || isLoading;
+  });
+
+  // ── SIDEBAR ──
+  function toggleSidebar() {
+    sidebarCollapsed = !sidebarCollapsed;
+    sidebar.classList.toggle("collapsed", sidebarCollapsed);
+    toggleBtn.textContent = sidebarCollapsed ? "⟩" : "⟨";
+  }
+
+  function renderConversations() {
+    if (!conversations.length) { convsEl.innerHTML = ""; return; }
+    convsEl.innerHTML = `<p class="label">Recent</p>` + conversations.map(c => `
+      <div class="conv-item ${c.id === currentId ? "active" : ""}" id="conv-${c.id}">
+        <button class="title-btn" onclick="selectConv(${c.id})">💬 ${escHtml(c.title)}</button>
+        <button class="del-btn" onclick="deleteConv(${c.id})">🗑</button>
+      </div>`).join("");
+  }
+
+  function newChat() {
+    messages = [];
+    currentId = null;
+    renderMessages();
+    renderConversations();
+  }
+
+  function selectConv(id) {
+    const c = conversations.find(x => x.id === id);
+    if (!c) return;
+    messages = c.messages;
+    currentId = id;
+    renderMessages();
+    renderConversations();
+  }
+
+  function deleteConv(id) {
+    conversations = conversations.filter(x => x.id !== id);
+    if (currentId === id) { messages = []; currentId = null; renderMessages(); }
+    renderConversations();
+  }
+
+  // ── MARKDOWN ── Simple renderer
+  function renderMarkdown(text) {
+    if (!text) return "";
+    let html = text
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      // Code blocks
+      .replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
+        `<pre><code>${code.trim()}</code></pre>`)
+      // Inline code
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      // Bold
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      // Italic
+      .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+      // Headers
+      .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+      .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+      .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+      // Links
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+      // Blockquote
+      .replace(/^> (.+)$/gm, "<blockquote>$1</blockquote>")
+      // Unordered list items
+      .replace(/^[\*\-] (.+)$/gm, "<li>$1</li>")
+      // Ordered list items
+      .replace(/^\d+\. (.+)$/gm, "<li>$1</li>")
+      // Paragraphs (double newline)
+      .replace(/\n\n+/g, "</p><p>")
+      // Single newlines
+      .replace(/\n/g, "<br>");
+
+    // Wrap orphan <li> in <ul>
+    html = html.replace(/(<li>.*?<\/li>)+/gs, m => `<ul>${m}</ul>`);
+    // Wrap in <p> if not already block-level
+    if (!html.startsWith("<h") && !html.startsWith("<ul") && !html.startsWith("<ol") && !html.startsWith("<pre") && !html.startsWith("<blockquote")) {
+      html = `<p>${html}</p>`;
+    }
+    return html;
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  // ── RENDER MESSAGES ──
+  function renderMessages() {
+    if (!messages.length) {
+      messagesEl.innerHTML = `
+        <div id="welcome">
+          <h1>Hello, I'm <span>Axiom</span></h1>
+          <p>How can I help you today?</p>
+          <div class="suggestions">
+            <button class="suggestion-btn" onclick="sendFromSuggestion(this)"><div class="suggestion-icon">💡</div>Explain quantum computing in simple terms</button>
+            <button class="suggestion-btn" onclick="sendFromSuggestion(this)"><div class="suggestion-icon">💻</div>Write a Python function to reverse a string</button>
+            <button class="suggestion-btn" onclick="sendFromSuggestion(this)"><div class="suggestion-icon">✍️</div>Help me write a professional bio</button>
+            <button class="suggestion-btn" onclick="sendFromSuggestion(this)"><div class="suggestion-icon">🌐</div>What are the latest breakthroughs in AI?</button>
+          </div>
+        </div>`;
+      return;
+    }
+    messagesEl.innerHTML = messages.map((m, i) => {
+      if (m.role === "user") {
+        return `<div class="msg-row user"><div class="msg-bubble-user">${escHtml(m.content)}</div></div>`;
+      }
+      const imgHtml = m.imageUrl
+        ? `<img src="${escHtml(m.imageUrl)}" alt="Generated image" />${m.imagePrompt ? `<p style="font-size:12px;color:#888;margin-top:8px;font-style:italic;">"${escHtml(m.imagePrompt)}"</p>` : ""}`
+        : "";
+      const textHtml = m.content ? renderMarkdown(m.content) : "";
+      return `<div class="msg-row assistant">
+        <div class="msg-avatar">✦</div>
+        <div>
+          <div class="msg-content">${imgHtml}${textHtml}</div>
+          <div class="msg-actions">
+            <button onclick="copyMsg(${i})" title="Copy">📋</button>
+            <button title="Good response">👍</button>
+            <button title="Bad response">👎</button>
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function addTyping() {
+    const row = document.createElement("div");
+    row.className = "msg-row assistant";
+    row.id = "typing-row";
+    row.innerHTML = `<div class="msg-avatar">✦</div><div class="typing"><span></span><span></span><span></span></div>`;
+    messagesEl.appendChild(row);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function removeTyping() {
+    const t = document.getElementById("typing-row");
+    if (t) t.remove();
+  }
+
+  function copyMsg(i) {
+    navigator.clipboard.writeText(messages[i].content || "");
+    showToast("Copied");
+  }
+
+  // ── SEND ──
+  async function sendMessage(content) {
+    const text = content || msgInput.value.trim();
+    if (!text || isLoading) return;
+    msgInput.value = "";
+    msgInput.style.height = "auto";
+    sendBtn.disabled = true;
+    isLoading = true;
+
+    const userMsg = { role: "user", content: text };
+    messages.push(userMsg);
+
+    let convId = currentId;
+    if (!convId) {
+      convId = convCounter++;
+      const title = text.length > 40 ? text.slice(0, 40) + "…" : text;
+      conversations.unshift({ id: convId, title, messages: [] });
+      currentId = convId;
+    }
+
+    renderMessages();
+    addTyping();
+
+    let assistantMsg;
+    if (text.startsWith("__image_gen__:")) {
+      const prompt = text.slice("__image_gen__:".length);
+      messages[messages.length - 1].content = `Generate an image: ${prompt}`;
+      renderMessages();
+      addTyping();
+      assistantMsg = await callImageGen(prompt);
+    } else {
+      assistantMsg = await callLLM(messages);
+    }
+
+    removeTyping();
+    messages.push(assistantMsg);
+    const conv = conversations.find(c => c.id === convId);
+    if (conv) conv.messages = [...messages];
+    isLoading = false;
+    renderMessages();
+    renderConversations();
+  }
+
+  async function callLLM(msgs) {
+    const systemPrompt = "You are Axiom, a knowledgeable and helpful AI assistant. You are friendly, concise, and accurate. Format responses clearly using markdown.";
+    const userText = msgs[msgs.length - 1].content;
+    
+    try {
+      const res = await fetch("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${HF_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          inputs: `${systemPrompt}\n\nUser: ${userText}\n\nAssistant:`,
+          parameters: { max_new_tokens: 500 }
+        })
+      });
+      const data = await res.json();
+      const text = data[0]?.generated_text?.split("Assistant:")[1]?.trim() || "Sorry, I couldn't generate a response.";
+      return { role: "assistant", content: text };
+    } catch (err) {
+      return { role: "assistant", content: "Error calling API. Make sure your Hugging Face API key is valid." };
+    }
+  }
+
+  async function callImageGen(prompt) {
+    try {
+      const res = await fetch("https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${HF_API_KEY}`
+        },
+        body: JSON.stringify({ inputs: prompt })
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      return { role: "assistant", content: "", imageUrl: url, imagePrompt: prompt };
+    } catch (err) {
+      return { role: "assistant", content: "Image generation failed. Hugging Face API key may not have image model access." };
+    }
+  }
+
+  // ── INPUT ──
+  function autoResize(el) {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 200) + "px";
+    sendBtn.disabled = !el.value.trim() || isLoading;
+  }
+
+  function handleKey(e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
+
+  function sendFromSuggestion(btn) {
+    const text = btn.innerText.trim();
+    sendMessage(text);
+  }
+
+  // ── IMAGE MODAL ──
+  function openImgModal() {
+    document.getElementById("img-modal").classList.add("open");
+    document.getElementById("img-prompt").focus();
+  }
+
+  function closeImgModal(e) {
+    if (!e || e.target === document.getElementById("img-modal") || !e.target) {
+      document.getElementById("img-modal").classList.remove("open");
+      document.getElementById("img-prompt").value = "";
+    }
+  }
+
+  function imgPromptKey(e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); generateImage(); }
+  }
+
+  function generateImage() {
+    const prompt = document.getElementById("img-prompt").value.trim();
+    if (!prompt) return;
+    closeImgModal();
+    sendMessage(`__image_gen__:${prompt}`);
+  }
+
+  // ── TOAST ──
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 2000);
+  }
+</script>
+</body>
+</html>
