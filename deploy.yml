@@ -10,10 +10,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: AxiomAIapi
+      - name: MY_NEW_SECRET
         run: |
-          # This command finds 'REPLACE_ME_WITH_KEY' and swaps it for your GitHub Secret
-          sed -i "s/REPLACE_ME_WITH_KEY/${{ secrets.AxiomAIAPI }}/g" index.html
 
       - name: Deploy to GitHub Pages
-        # (Insert your favorite deployment action here, like peaceiris/actions-gh-pages)
