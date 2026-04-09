@@ -209,8 +209,7 @@
 
 <script>
   // ── CONFIG ──────────────────────────────────────────────────────────────
-  // Get your free API key at: https://huggingface.co/settings/tokens
-  const HF_API_KEY = "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";
+  const HF_API_KEY = ${{secrets.HF_TOKEN}};
   // ────────────────────────────────────────────────────────────────────────
 
   let conversations = [];
