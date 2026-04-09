@@ -209,7 +209,7 @@
 
 <script>
   // ── CONFIG ──────────────────────────────────────────────────────────────
-  const HF_API_KEY = ${{secrets.HF_TOKEN}};
+  const HF_API_KEY = 'hf_FAKE_KEY_FOR_DEMO'; // Replace with your actual Hugging Face API key
   // ────────────────────────────────────────────────────────────────────────
 
   let conversations = [];
@@ -240,9 +240,12 @@
   }
 
   function renderConversations() {
-    if (!conversations.length) { convsEl.innerHTML = ""; return; }
+    if (!conversations.length) { 
+      convsEl.innerHTML = ""; 
+      return; 
+    }
     convsEl.innerHTML = `<p class="label">Recent</p>` + conversations.map(c => `
-      <div class="conv-item ${c.id === currentId ? "active" : ""}" id="conv-${c.id}">
+      <div class="conv-item ${c.id === currentId ? "active" : ""}" data-id="${c.id}">
         <button class="title-btn" onclick="selectConv(${c.id})"><i class="fa-regular fa-message"></i>${escHtml(c.title)}</button>
         <button class="del-btn" onclick="deleteConv(${c.id})"><i class="fa-solid fa-trash"></i></button>
       </div>`).join("");
@@ -258,7 +261,7 @@
   function selectConv(id) {
     const c = conversations.find(x => x.id === id);
     if (!c) return;
-    messages = c.messages;
+    messages = [...c.messages];
     currentId = id;
     renderMessages();
     renderConversations();
@@ -266,7 +269,11 @@
 
   function deleteConv(id) {
     conversations = conversations.filter(x => x.id !== id);
-    if (currentId === id) { messages = []; currentId = null; renderMessages(); }
+    if (currentId === id) { 
+      messages = []; 
+      currentId = null; 
+      renderMessages(); 
+    }
     renderConversations();
   }
 
@@ -275,28 +282,34 @@
     if (!text) return "";
     let html = text
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-      .replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => `<pre><code>${code.trim()}</code></pre>`)
-      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/```([\w]*)\n?([\s\S]*?)```/g, (_, lang, code) => `<pre><code>${escHtml(code.trim())}</code></pre>`)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
       .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
       .replace(/\*([^*]+)\*/g, "<em>$1</em>")
       .replace(/^### (.+)$/gm, "<h3>$1</h3>")
       .replace(/^## (.+)$/gm, "<h2>$1</h2>")
       .replace(/^# (.+)$/gm, "<h1>$1</h1>")
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+      .replace(/\!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />')
+      .replace(/\[([^\]]*)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
       .replace(/^> (.+)$/gm, "<blockquote>$1</blockquote>")
       .replace(/^[\*\-] (.+)$/gm, "<li>$1</li>")
-      .replace(/^\d+\. (.+)$/gm, "<li>$1</li>")
+      .replace(/^(\d+)\. (.+)$/gm, "<li>$2</li>")
       .replace(/\n\n+/g, "</p><p>")
       .replace(/\n/g, "<br>");
-    html = html.replace(/(<li>.*?<\/li>)+/gs, m => `<ul>${m}</ul>`);
-    if (!html.startsWith("<h") && !html.startsWith("<ul") && !html.startsWith("<ol") && !html.startsWith("<pre") && !html.startsWith("<blockquote")) {
+    
+    // Wrap loose <li> tags in <ul>
+    html = html.replace(/(<li>.*?<\/li>)+/gs, '<ul>$&</ul>');
+    
+    if (!html.match(/^(<h|<ul|<ol|<pre|<blockquote|<img)/)) {
       html = `<p>${html}</p>`;
     }
     return html;
   }
 
   function escHtml(str) {
-    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
   }
 
   const AVATAR_HTML = `<div class="msg-avatar"><img src="https://media.base44.com/images/public/69d482d67eb60d60457aa0f9/666fce088_AxiomAILogo.png" alt="Axiom" /></div>`;
@@ -318,6 +331,7 @@
         </div>`;
       return;
     }
+    
     messagesEl.innerHTML = messages.map((m, i) => {
       if (m.role === "user") {
         return `<div class="msg-row user"><div class="msg-bubble-user">${escHtml(m.content)}</div></div>`;
@@ -356,21 +370,25 @@
   }
 
   function copyMsg(i) {
-    navigator.clipboard.writeText(messages[i].content || "");
-    showToast("Copied");
+    navigator.clipboard.writeText(messages[i].content || "").then(() => {
+      showToast("Copied");
+    }).catch(() => {
+      showToast("Copy failed");
+    });
   }
 
   // ── SEND ──
   async function sendMessage(content) {
     const text = content || msgInput.value.trim();
     if (!text || isLoading) return;
+    
     msgInput.value = "";
     msgInput.style.height = "auto";
     sendBtn.disabled = true;
     isLoading = true;
 
     const isImageGen = text.startsWith("__image_gen__:");
-    const imagePrompt = isImageGen ? text.slice("__image_gen__:".length) : null;
+    const imagePrompt = isImageGen ? text.slice("__image_gen__:".length).trim() : null;
 
     const userMsg = { role: "user", content: isImageGen ? `Generate an image: ${imagePrompt}` : text };
     messages.push(userMsg);
@@ -387,10 +405,13 @@
     addTyping();
 
     let assistantMsg;
-    if (isImageGen) {
+    if (isImageGen && HF_API_KEY !== 'hf_FAKE_KEY_FOR_DEMO') {
       assistantMsg = await callImageGen(imagePrompt);
-    } else {
+    } else if (HF_API_KEY !== 'hf_FAKE_KEY_FOR_DEMO') {
       assistantMsg = await callLLM(messages);
+    } else {
+      // Demo mode with mock responses
+      assistantMsg = await mockResponse(userMsg.content, isImageGen ? imagePrompt : null);
     }
 
     removeTyping();
@@ -400,38 +421,106 @@
     isLoading = false;
     renderMessages();
     renderConversations();
-    sendBtn.disabled = !msgInput.value.trim();
   }
 
+  // Mock response for demo mode
+  async function mockResponse(userContent, imagePrompt) {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        if (imagePrompt) {
+          // Mock image response
+          const mockImage = `https://picsum.photos/400/300?random=${Date.now()}`;
+          resolve({ 
+            role: "assistant", 
+            content: "Here's your generated image (demo mode):", 
+            imageUrl: mockImage, 
+            imagePrompt: imagePrompt 
+          });
+        } else {
+          // Mock text responses based on common queries
+          let response = "Thanks for your question! ";
+          
+          if (userContent.toLowerCase().includes('quantum')) {
+            response += "Quantum computing uses qubits that can exist in multiple states simultaneously (superposition) and be linked together (entanglement), enabling massive parallel computation.";
+          } else if (userContent.toLowerCase().includes('python') || userContent.toLowerCase().includes('reverse')) {
+            response += "```python\ndef reverse_string(s):\n    return s[::-1]\n\n# Example\nprint(reverse_string('hello'))  # Output: 'olleh'\n```";
+          } else if (userContent.toLowerCase().includes('bio') || userContent.toLowerCase().includes('professional')) {
+            response += "Here's a professional bio template:\n\n'Experienced [Your Role] with [X] years in [Industry]. Passionate about [Key Interest]. Proven track record in [Key Achievement].'";
+          } else if (userContent.toLowerCase().includes('ai') || userContent.toLowerCase().includes('breakthrough')) {
+            response += "Recent AI breakthroughs include multimodal models, improved reasoning capabilities, and more efficient training methods.";
+          } else {
+            response += "I'm a demo AI. Get a Hugging Face API key from https://huggingface.co/settings/tokens to enable real AI responses!";
+          }
+          
+          resolve({ role: "assistant", content: response });
+        }
+      }, 1500 + Math.random() * 1000);
+    });
+  }
+
+  // Real LLM API call
   async function callLLM(msgs) {
     const systemPrompt = "You are Axiom, a knowledgeable and helpful AI assistant. You are friendly, concise, and accurate. Format responses clearly using markdown.";
-    const userText = msgs[msgs.length - 1].content;
+    const fullPrompt = `${systemPrompt}\n\n${msgs.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n')}\n\nAssistant:`;
+    
     try {
-      const res = await fetch("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1", {
+      const res = await fetch("https://api-inference.huggingface.co/models/microsoft/DialoGPT-large", {
         method: "POST",
-        headers: { "Authorization": `Bearer ${HF_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ inputs: `${systemPrompt}\n\nUser: ${userText}\n\nAssistant:`, parameters: { max_new_tokens: 500 } })
+        headers: { 
+          "Authorization": `Bearer ${HF_API_KEY}`, 
+          "Content-Type": "application/json" 
+        },
+        body: JSON.stringify({ 
+          inputs: fullPrompt, 
+          parameters: { 
+            max_new_tokens: 300,
+            temperature: 0.7,
+            return_full_text: false
+          } 
+        })
       });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      
       const data = await res.json();
-      const text = data[0]?.generated_text?.split("Assistant:")[1]?.trim() || "Sorry, I couldn't generate a response.";
+      const text = data[0]?.generated_text?.trim() || "Sorry, I couldn't generate a response.";
       return { role: "assistant", content: text };
     } catch (err) {
-      return { role: "assistant", content: "Error calling API. Make sure your Hugging Face API key is valid." };
+      console.error('LLM API Error:', err);
+      return { 
+        role: "assistant", 
+        content: `Error: ${err.message}\n\n**To fix this:**\n1. Get a free Hugging Face API key at https://huggingface.co/settings/tokens\n2. Replace \`hf_FAKE_KEY_FOR_DEMO\` with your real key\n3. Refresh the page` 
+      };
     }
   }
 
+  // Real image generation (disabled in demo)
   async function callImageGen(prompt) {
     try {
-      const res = await fetch("https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2", {
+      const res = await fetch("https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1", {
         method: "POST",
-        headers: { "Authorization": `Bearer ${HF_API_KEY}` },
+        headers: { 
+          "Authorization": `Bearer ${HF_API_KEY}`,
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({ inputs: prompt })
       });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       return { role: "assistant", content: "", imageUrl: url, imagePrompt: prompt };
     } catch (err) {
-      return { role: "assistant", content: "Image generation failed. Check your Hugging Face API key." };
+      console.error('Image Gen Error:', err);
+      return { 
+        role: "assistant", 
+        content: `Image generation failed: ${err.message}\n\nDemo images work without API key!` 
+      };
     }
   }
 
@@ -443,29 +532,37 @@
   }
 
   function handleKey(e) {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    if (e.key === "Enter" && !e.shiftKey) { 
+      e.preventDefault(); 
+      sendMessage(); 
+    }
   }
 
   function sendFromSuggestion(btn) {
-    const text = btn.innerText.trim();
+    const text = btn.textContent.trim();
+    btn.disabled = true;
     sendMessage(text);
   }
 
   // ── IMAGE MODAL ──
   function openImgModal() {
     document.getElementById("img-modal").classList.add("open");
-    document.getElementById("img-prompt").focus();
+    setTimeout(() => document.getElementById("img-prompt").focus(), 100);
   }
 
   function closeImgModal(e) {
-    if (!e || e.target === document.getElementById("img-modal") || !e.target) {
-      document.getElementById("img-modal").classList.remove("open");
+    const modal = document.getElementById("img-modal");
+    if (e && (e.target === modal || e.target.closest('.modal-header button'))) {
+      modal.classList.remove("open");
       document.getElementById("img-prompt").value = "";
     }
   }
 
   function imgPromptKey(e) {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); generateImage(); }
+    if (e.key === "Enter" && !e.shiftKey) { 
+      e.preventDefault(); 
+      generateImage(); 
+    }
   }
 
   function generateImage() {
@@ -480,8 +577,11 @@
     const t = document.getElementById("toast");
     t.textContent = msg;
     t.classList.add("show");
-    setTimeout(() => t.classList.remove("show"), 2000);
+    setTimeout(() => t.classList.remove("show"), 2500);
   }
+
+  // Initialize
+  renderConversations();
 </script>
 </body>
 </html>
