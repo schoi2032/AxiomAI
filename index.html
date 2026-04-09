@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Axiom AI</title>
-  <link rel="icon" type="image/png" href="AxiomAILogo.png" />
+  <title>Axiom</title>
+  <link rel="icon" type="image/png" href="https://media.base44.com/images/public/69d482d67eb60d60457aa0f9/666fce088_AxiomAILogo.png" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', system-ui, sans-serif; background: #fff; color: #212121; height: 100vh; display: flex; overflow: hidden; }
@@ -132,7 +132,7 @@
 <!-- Sidebar -->
 <div id="sidebar">
   <div class="sidebar-header">
-    <img src="AxiomAILogo.png" alt="Axiom" />
+    <img src="https://media.base44.com/images/public/69d482d67eb60d60457aa0f9/666fce088_AxiomAILogo.png" alt="Axiom" />
     <div class="sidebar-logo-text">Axiom</div>
   </div>
   <button id="new-chat-btn" onclick="newChat()">
@@ -151,19 +151,19 @@
       <p>How can I help you today?</p>
       <div class="suggestions">
         <button class="suggestion-btn" onclick="sendFromSuggestion(this)">
-          <div class="suggestion-icon"><i data-lucide="star"></i></div>
+          <div class="suggestion-icon">💡</div>
           Explain quantum computing in simple terms
         </button>
         <button class="suggestion-btn" onclick="sendFromSuggestion(this)">
-          <div class="suggestion-icon"><i data-lucide="search"></i></div>
+          <div class="suggestion-icon">💻</div>
           Write a Python function to reverse a string
         </button>
         <button class="suggestion-btn" onclick="sendFromSuggestion(this)">
-          <div class="suggestion-icon"><i data-lucide="edit"></i></div>
+          <div class="suggestion-icon">✍️</div>
           Help me write a professional bio
         </button>
         <button class="suggestion-btn" onclick="sendFromSuggestion(this)">
-          <div class="suggestion-icon"><i data-lucide="share-2"></i></div>
+          <div class="suggestion-icon">🌐</div>
           What are the latest breakthroughs in AI?
         </button>
       </div>
@@ -175,8 +175,8 @@
       <textarea id="msg-input" rows="1" placeholder="Ask Axiom" oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
       <div class="input-toolbar">
         <div class="toolbar-left">
-          <button class="icon-btn" title="Generate image" onclick="openImgModal()"><i data-lucide="image"></i></button>
-          <button class="icon-btn" title="Voice"><i data-lucide="mic"></i></button>
+          <button class="icon-btn" title="Generate image" onclick="openImgModal()">🖼️</button>
+          <button class="icon-btn" title="Voice">🎤</button>
         </div>
         <button id="send-btn" onclick="sendMessage()" disabled>↑</button>
       </div>
@@ -205,7 +205,7 @@
 
 <script>
   // ── CONFIG ── Replace with your Hugging Face API key (free at huggingface.co)
-  const  = "hf_YOUR_FREE_API_KEY_HERE";
+  const HF_API_KEY = "hf_YOUR_FREE_API_KEY_HERE";
 
   // ── STATE ──
   let conversations = [];
@@ -296,7 +296,9 @@
       // Single newlines
       .replace(/\n/g, "<br>");
 
+    // Wrap orphan <li> in <ul>
     html = html.replace(/(<li>.*?<\/li>)+/gs, m => `<ul>${m}</ul>`);
+    // Wrap in <p> if not already block-level
     if (!html.startsWith("<h") && !html.startsWith("<ul") && !html.startsWith("<ol") && !html.startsWith("<pre") && !html.startsWith("<blockquote")) {
       html = `<p>${html}</p>`;
     }
@@ -336,9 +338,9 @@
         <div>
           <div class="msg-content">${imgHtml}${textHtml}</div>
           <div class="msg-actions">
-            <button onclick="copyMsg(${i})" title="Copy"><i data-lucide="home"></i></button>
-            <button title="Good response"><i data-lucide="check"></i></button>
-            <button title="Bad response"><i data-lucide="x"></i></button>
+            <button onclick="copyMsg(${i})" title="Copy">📋</button>
+            <button title="Good response">👍</button>
+            <button title="Bad response">👎</button>
           </div>
         </div>
       </div>`;
@@ -416,7 +418,7 @@
       const res = await fetch("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${}`,
+          "Authorization": `Bearer ${HF_API_KEY}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -437,7 +439,7 @@
       const res = await fetch("https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${}`
+          "Authorization": `Bearer ${HF_API_KEY}`
         },
         body: JSON.stringify({ inputs: prompt })
       });
