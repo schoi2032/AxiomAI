@@ -405,9 +405,9 @@
     addTyping();
 
     let assistantMsg;
-    if (isImageGen && HF_API_KEY !== 'hf_FAKE_KEY_FOR_DEMO') {
+    if (isImageGen && HF_API_KEY !== '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') {
       assistantMsg = await callImageGen(imagePrompt);
-    } else if (HF_API_KEY !== 'hf_FAKE_KEY_FOR_DEMO') {
+    } else if (HF_API_KEY !== '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') {
       assistantMsg = await callLLM(messages);
     } else {
       // Demo mode with mock responses
