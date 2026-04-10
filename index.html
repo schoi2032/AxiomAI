@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Axiom AI</title>
+  <link rel="icon" type="image/png" href="AxiomAILogo.png" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #fff; color: #212121; height: 100vh; display: flex; overflow: hidden; }
+
+    /* Sidebar */
+    #sidebar { width: 256px; min-width: 256px; background: #f7f7f7; border-right: 1px solid #e5e5e5; display: flex; flex-direction: column; transition: width 0.25s; overflow: hidden; }
+    #sidebar.collapsed { width: 72px; min-width: 72px; }
+    .sidebar-header { display: flex; align-items: center; gap: 10px; padding: 18px 14px; }
+    .sidebar-header img { width: 30px; height: 30px; object-fit: contain; flex-shrink: 0; }
+    .sidebar-logo-text { font-size: 17px; font-weight: 500; white-space: nowrap; overflow: hidden; color: #212121; }
+    #sidebar.collapsed .sidebar-logo-text { display: none; }
+    #new-chat-btn { margin: 0 12px 16px; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: none; background: transparent; border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 500; color: #212121; transition: background 0.15s; white-space: nowrap; }
+    #new-chat-btn:hover { background: #ebebeb; }
+    #sidebar.collapsed #new-chat-btn { justify-content: center; padding: 10px; }
+    #sidebar.collapsed #new-chat-btn .btn-label { display: none; }
+    #conversations { flex: 1; overflow-y: auto; padding: 0 8px; }
+    #conversations p.label { font-size: 11px; color: #888; padding: 4px 8px 6px; font-weight: 500; }
+    #sidebar.collapsed #conversations { display: none; }
+    .conv-item { display: flex; align-items: center; border-radius: 12px; overflow: hidden; transition: background 0.1s; }
+    .conv-item:hover, .conv-item.active { background: #ebebeb; }
+    .conv-item button.title-btn { flex: 1; text-align: left; background: none; border: none; padding: 8px 12px; font-size: 13px; color: #555; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 8px; }
+    .conv-item.active button.title-btn { color: #212121; font-weight: 500; }
+    .conv-item button.title-btn i { color: #aaa; font-size: 12px; flex-shrink: 0; }
+    .conv-item button.del-btn { opacity: 0; background: none; border: none; cursor: pointer; padding: 0 10px; color: #bbb; font-size: 13px; transition: opacity 0.15s, color 0.15s; flex-shrink: 0; height: 36px; }
+    .conv-item:hover button.del-btn { opacity: 1; }
+    .conv-item button.del-btn:hover { color: #d32f2f; }
+    #toggle-btn { margin: auto 12px 16px; background: none; border: none; border-radius: 999px; padding: 8px; cursor: pointer; color: #888; width: calc(100% - 24px); display: flex; justify-content: center; align-items: center; transition: background 0.15s; font-size: 14px; }
+    #toggle-btn:hover { background: #ebebeb; }
+
+    /* Main area */
+    #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* Messages */
+    #messages { flex: 1; overflow-y: auto; padding: 32px 0; display: flex; flex-direction: column; gap: 32px; }
+
+    /* Welcome */
+    #welcome { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 16px; }
+    #welcome .welcome-logo { width: 60px; height: 60px; object-fit: contain; margin-bottom: 24px; }
+    #welcome h1 { font-size: 40px; font-weight: 400; margin-bottom: 8px; }
+    #welcome h1 span { background: linear-gradient(90deg,#4285f4,#9b59b6,#ea4335,#fbbc05,#34a853,#4285f4); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; animation: shimmer 3s linear infinite; font-weight: 500; }
+    @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
+    #welcome p { color: #888; font-size: 20px; font-weight: 300; margin-bottom: 40px; }
+    .suggestions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 640px; width: 100%; }
+    .suggestion-btn { display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid #e5e5e5; border-radius: 16px; background: #fafafa; cursor: pointer; text-align: left; font-size: 13px; font-weight: 500; color: #212121; transition: background 0.15s, box-shadow 0.15s; }
+    .suggestion-btn:hover { background: #f0f0f0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .suggestion-icon { width: 36px; height: 36px; background: white; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 15px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); flex-shrink: 0; color: #4285f4; }
+
+    /* Message bubbles */
+    .msg-row { display: flex; max-width: 768px; width: 100%; margin: 0 auto; padding: 0 16px; }
+    .msg-row.user { justify-content: flex-end; }
+    .msg-row.assistant { gap: 14px; }
+    .msg-avatar { width: 28px; height: 28px; flex-shrink: 0; margin-top: 2px; display: flex; align-items: center; justify-content: center; }
+    .msg-avatar img { width: 28px; height: 28px; object-fit: contain; }
+    .msg-bubble-user { background: #f0f0f0; border-radius: 24px 24px 6px 24px; padding: 14px 20px; max-width: 75%; font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+    .msg-content { flex: 1; min-width: 0; font-size: 14px; line-height: 1.7; color: #212121; }
+    .msg-content p { margin: 8px 0; }
+    .msg-content p:first-child { margin-top: 0; }
+    .msg-content ul, .msg-content ol { margin: 8px 0 8px 24px; }
+    .msg-content li { margin: 4px 0; }
+    .msg-content h1,.msg-content h2,.msg-content h3 { margin: 16px 0 8px; font-weight: 600; }
+    .msg-content h1 { font-size: 20px; }
+    .msg-content h2 { font-size: 17px; }
+    .msg-content h3 { font-size: 15px; }
+    .msg-content strong { font-weight: 600; }
+    .msg-content em { font-style: italic; }
+    .msg-content code { background: #f0f0f0; padding: 2px 6px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 12px; }
+    .msg-content pre { background: #f8f9fa; border: 1px solid #e5e5e5; border-radius: 12px; padding: 16px; overflow-x: auto; margin: 12px 0; }
+    .msg-content pre code { background: none; padding: 0; font-size: 13px; }
+    .msg-content blockquote { border-left: 4px solid rgba(66,133,244,0.3); padding-left: 16px; color: #666; font-style: italic; margin: 8px 0; }
+    .msg-content a { color: #4285f4; text-decoration: none; }
+    .msg-content a:hover { text-decoration: underline; }
+    .msg-content img { border-radius: 16px; max-width: 380px; width: 100%; border: 1px solid #e5e5e5; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .msg-actions { display: flex; gap: 2px; margin-top: 10px; opacity: 0; transition: opacity 0.15s; }
+    .msg-row.assistant:hover .msg-actions { opacity: 1; }
+    .msg-actions button { background: none; border: none; cursor: pointer; padding: 6px 8px; border-radius: 999px; color: #aaa; font-size: 13px; transition: background 0.15s, color 0.15s; }
+    .msg-actions button:hover { background: #f0f0f0; color: #555; }
+
+    /* Typing dots */
+    .typing { display: flex; gap: 6px; align-items: center; padding: 12px 0; }
+    .typing span { width: 8px; height: 8px; border-radius: 50%; background: rgba(66,133,244,0.5); animation: bounce 1.4s ease-in-out infinite; display: inline-block; }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%,60%,100%{transform:translateY(0);opacity:0.4} 30%{transform:translateY(-6px);opacity:1} }
+
+    /* Input area */
+    #input-area { padding: 8px 16px 20px; max-width: 768px; width: 100%; margin: 0 auto; }
+    #input-box { background: #f0f0f0; border-radius: 24px; border: 1px solid #e5e5e5; display: flex; flex-direction: column; transition: border-color 0.2s, background 0.2s, box-shadow 0.2s; }
+    #input-box:focus-within { border-color: rgba(66,133,244,0.3); background: white; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    #msg-input { width: 100%; resize: none; background: transparent; border: none; outline: none; padding: 16px 20px 8px; font-size: 14px; font-family: inherit; color: #212121; max-height: 200px; line-height: 1.6; }
+    #msg-input::placeholder { color: #aaa; }
+    .input-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 0 12px 10px; }
+    .toolbar-left { display: flex; gap: 4px; }
+    .icon-btn { background: none; border: none; cursor: pointer; width: 32px; height: 32px; border-radius: 999px; display: flex; align-items: center; justify-content: center; color: #888; font-size: 15px; transition: background 0.15s, color 0.15s; }
+    .icon-btn:hover { background: white; color: #212121; }
+    #send-btn { width: 36px; height: 36px; border-radius: 999px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 15px; transition: opacity 0.15s; background: linear-gradient(135deg,#4285f4,#9b59b6,#ea4335,#fbbc05); color: white; }
+    #send-btn:disabled { background: #e0e0e0; color: #aaa; cursor: not-allowed; }
+    .input-hint { text-align: center; font-size: 11px; color: #bbb; margin-top: 10px; }
+
+    /* Image modal */
+    #img-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); z-index: 100; align-items: center; justify-content: center; }
+    #img-modal.open { display: flex; }
+    .modal-box { background: white; border-radius: 20px; padding: 24px; width: 100%; max-width: 420px; margin: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .modal-header h3 { font-size: 16px; font-weight: 600; }
+    .modal-header button { background: none; border: none; cursor: pointer; color: #888; font-size: 16px; line-height: 1; }
+    #img-prompt { width: 100%; resize: none; border: 1px solid #e5e5e5; border-radius: 12px; padding: 12px 16px; font-size: 14px; font-family: inherit; outline: none; background: #fafafa; transition: border-color 0.2s; }
+    #img-prompt:focus { border-color: rgba(66,133,244,0.4); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .btn-ghost { background: none; border: none; cursor: pointer; padding: 8px 16px; border-radius: 999px; font-size: 14px; color: #555; transition: background 0.15s; }
+    .btn-ghost:hover { background: #f0f0f0; }
+    .btn-primary { background: linear-gradient(135deg,#4285f4,#9b59b6,#ea4335,#fbbc05); color: white; border: none; cursor: pointer; padding: 8px 20px; border-radius: 999px; font-size: 14px; font-weight: 500; transition: opacity 0.15s; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Toast */
+    #toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px); background: #333; color: white; padding: 10px 20px; border-radius: 999px; font-size: 13px; opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none; z-index: 999; }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    @media (max-width: 640px) {
+      #sidebar { display: none; }
+      .suggestions { grid-template-columns: 1fr; }
+      #welcome h1 { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <div class="sidebar-header">
+    <img src="https://media.base44.com/images/public/69d482d67eb60d60457aa0f9/666fce088_AxiomAILogo.png" alt="Axiom" />
+    <div class="sidebar-logo-text">Axiom</div>
+  </div>
+  <button id="new-chat-btn" onclick="newChat()">
+    <i class="fa-solid fa-plus"></i>
+    <span class="btn-label">New chat</span>
+  </button>
+  <div id="conversations"></div>
+  <button id="toggle-btn" onclick="toggleSidebar()"><i class="fa-solid fa-chevron-left"></i></button>
+</div>
+
+<!-- Main -->
+<div id="main">
+  <div id="messages">
+    <div id="welcome">
+      <img class="welcome-logo" src="https://media.base44.com/images/public/69d482d67eb60d60457aa0f9/666fce088_AxiomAILogo.png" alt="Axiom" />
+      <h1>Hello, I'm <span>Axiom</span></h1>
+      <p>How can I help you today?</p>
+      <div class="suggestions">
+        <button class="suggestion-btn" onclick="sendFromSuggestion(this)">
+          <div class="suggestion-icon"><i class="fa-solid fa-lightbulb"></i></div>
+          Explain quantum computing in simple terms
+        </button>
+        <button class="suggestion-btn" onclick="sendFromSuggestion(this)">
+          <div class="suggestion-icon"><i class="fa-solid fa-code"></i></div>
+          Write a Python function to reverse a string
+        </button>
+        <button class="suggestion-btn" onclick="sendFromSuggestion(this)">
+          <div class="suggestion-icon"><i class="fa-solid fa-pen-nib"></i></div>
+          Help me write a professional bio
+        </button>
+        <button class="suggestion-btn" onclick="sendFromSuggestion(this)">
+          <div class="suggestion-icon"><i class="fa-solid fa-globe"></i></div>
+          What are the latest breakthroughs in AI?
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="input-area">
+    <div id="input-box">
+      <textarea id="msg-input" rows="1" placeholder="Ask Axiom" oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
+      <div class="input-toolbar">
+        <div class="toolbar-left">
+          <button class="icon-btn" title="Generate image" onclick="openImgModal()"><i class="fa-solid fa-image"></i></button>
+          <button class="icon-btn" title="Voice"><i class="fa-solid fa-microphone"></i></button>
+        </div>
+        <button id="send-btn" onclick="sendMessage()" disabled><i class="fa-solid fa-arrow-up"></i></button>
+      </div>
+    </div>
+    <p class="input-hint">Axiom may display inaccurate info. Double-check its responses.</p>
+  </div>
+</div>
+
+<!-- Image modal -->
+<div id="img-modal" onclick="closeImgModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Generate an image</h3>
+      <button onclick="closeImgModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <textarea id="img-prompt" rows="3" placeholder="Describe the image you want to generate..." onkeydown="imgPromptKey(event)"></textarea>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeImgModal()">Cancel</button>
+      <button class="btn-primary" id="gen-btn" onclick="generateImage()">Generate</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+  // ── CONFIG ──────────────────────────────────────────────────────────────
+  const HF_API_KEY = 'hf_FAKE_KEY_FOR_DEMO'; // Replace with your actual Hugging Face API key
+  // ────────────────────────────────────────────────────────────────────────
+
+  let conversations = [];
+  let currentId = null;
+  let messages = [];
+  let isLoading = false;
+  let sidebarCollapsed = false;
+  let convCounter = 1;
+
+  const msgInput = document.getElementById("msg-input");
+  const sendBtn = document.getElementById("send-btn");
+  const messagesEl = document.getElementById("messages");
+  const convsEl = document.getElementById("conversations");
+  const sidebar = document.getElementById("sidebar");
+  const toggleBtn = document.getElementById("toggle-btn");
+
+  msgInput.addEventListener("input", () => {
+    sendBtn.disabled = !msgInput.value.trim() || isLoading;
+  });
+
+  // ── SIDEBAR ──
+  function toggleSidebar() {
+    sidebarCollapsed = !sidebarCollapsed;
+    sidebar.classList.toggle("collapsed", sidebarCollapsed);
+    toggleBtn.innerHTML = sidebarCollapsed
+      ? '<i class="fa-solid fa-chevron-right"></i>'
+      : '<i class="fa-solid fa-chevron-left"></i>';
+  }
+
+  function renderConversations() {
+    if (!conversations.length) { 
+      convsEl.innerHTML = ""; 
+      return; 
+    }
+    convsEl.innerHTML = `<p class="label">Recent</p>` + conversations.map(c => `
+      <div class="conv-item ${c.id === currentId ? "active" : ""}" data-id="${c.id}">
+        <button class="title-btn" onclick="selectConv(${c.id})"><i class="fa-regular fa-message"></i>${escHtml(c.title)}</button>
+        <button class="del-btn" onclick="deleteConv(${c.id})"><i class="fa-solid fa-trash"></i></button>
+      </div>`).join("");
+  }
+
+  function newChat() {
+    messages = [];
+    currentId = null;
+    renderMessages();
+    renderConversations();
+  }
+
+  function selectConv(id) {
+    const c = conversations.find(x => x.id === id);
+    if (!c) return;
+    messages = [...c.messages];
+    currentId = id;
+    renderMessages();
+    renderConversations();
+  }
+
+  function deleteConv(id) {
+    conversations = conversations.filter(x => x.id !== id);
+    if (currentId === id) { 
+      messages = []; 
+      currentId = null; 
+      renderMessages(); 
+    }
+    renderConversations();
+  }
+
+  // ── MARKDOWN ──
+  function renderMarkdown(text) {
+    if (!text) return "";
+    let html = text
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/```([\w]*)\n?([\s\S]*?)```/g, (_, lang, code) => `<pre><code>${escHtml(code.trim())}</code></pre>`)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+      .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+      .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+      .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+      .replace(/\!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />')
+      .replace(/\[([^\]]*)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+      .replace(/^> (.+)$/gm, "<blockquote>$1</blockquote>")
+      .replace(/^[\*\-] (.+)$/gm, "<li>$1</li>")
+      .replace(/^(\d+)\. (.+)$/gm, "<li>$2</li>")
+      .replace(/\n\n+/g, "</p><p>")
+      .replace(/\n/g, "<br>");
+    
+    // Wrap loose <li> tags in <ul>
+    html = html.replace(/(<li>.*?<\/li>)+/gs, '<ul>$&</ul>');
+    
+    if (!html.match(/^(<h|<ul|<ol|<pre|<blockquote|<img)/)) {
+      html = `<p>${html}</p>`;
+    }
+    return html;
+  }
+
+  function escHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  const AVATAR_HTML = `<div class="msg-avatar"><img src="https://media.base44.com/images/public/69d482d67eb60d60457aa0f9/666fce088_AxiomAILogo.png" alt="Axiom" /></div>`;
+
+  // ── RENDER MESSAGES ──
+  function renderMessages() {
+    if (!messages.length) {
+      messagesEl.innerHTML = `
+        <div id="welcome">
+          <img class="welcome-logo" src="https://media.base44.com/images/public/69d482d67eb60d60457aa0f9/666fce088_AxiomAILogo.png" alt="Axiom" />
+          <h1>Hello, I'm <span>Axiom</span></h1>
+          <p>How can I help you today?</p>
+          <div class="suggestions">
+            <button class="suggestion-btn" onclick="sendFromSuggestion(this)"><div class="suggestion-icon"><i class="fa-solid fa-lightbulb"></i></div>Explain quantum computing in simple terms</button>
+            <button class="suggestion-btn" onclick="sendFromSuggestion(this)"><div class="suggestion-icon"><i class="fa-solid fa-code"></i></div>Write a Python function to reverse a string</button>
+            <button class="suggestion-btn" onclick="sendFromSuggestion(this)"><div class="suggestion-icon"><i class="fa-solid fa-pen-nib"></i></div>Help me write a professional bio</button>
+            <button class="suggestion-btn" onclick="sendFromSuggestion(this)"><div class="suggestion-icon"><i class="fa-solid fa-globe"></i></div>What are the latest breakthroughs in AI?</button>
+          </div>
+        </div>`;
+      return;
+    }
+    
+    messagesEl.innerHTML = messages.map((m, i) => {
+      if (m.role === "user") {
+        return `<div class="msg-row user"><div class="msg-bubble-user">${escHtml(m.content)}</div></div>`;
+      }
+      const imgHtml = m.imageUrl
+        ? `<img src="${escHtml(m.imageUrl)}" alt="Generated image" />${m.imagePrompt ? `<p style="font-size:12px;color:#888;margin-top:8px;font-style:italic;">"${escHtml(m.imagePrompt)}"</p>` : ""}`
+        : "";
+      const textHtml = m.content ? renderMarkdown(m.content) : "";
+      return `<div class="msg-row assistant">
+        ${AVATAR_HTML}
+        <div>
+          <div class="msg-content">${imgHtml}${textHtml}</div>
+          <div class="msg-actions">
+            <button onclick="copyMsg(${i})" title="Copy"><i class="fa-regular fa-copy"></i></button>
+            <button title="Good response"><i class="fa-regular fa-thumbs-up"></i></button>
+            <button title="Bad response"><i class="fa-regular fa-thumbs-down"></i></button>
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function addTyping() {
+    const row = document.createElement("div");
+    row.className = "msg-row assistant";
+    row.id = "typing-row";
+    row.innerHTML = `${AVATAR_HTML}<div class="typing"><span></span><span></span><span></span></div>`;
+    messagesEl.appendChild(row);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function removeTyping() {
+    const t = document.getElementById("typing-row");
+    if (t) t.remove();
+  }
+
+  function copyMsg(i) {
+    navigator.clipboard.writeText(messages[i].content || "").then(() => {
+      showToast("Copied");
+    }).catch(() => {
+      showToast("Copy failed");
+    });
+  }
+
+  // ── SEND ──
+  async function sendMessage(content) {
+    const text = content || msgInput.value.trim();
+    if (!text || isLoading) return;
+    
+    msgInput.value = "";
+    msgInput.style.height = "auto";
+    sendBtn.disabled = true;
+    isLoading = true;
+
+    const isImageGen = text.startsWith("__image_gen__:");
+    const imagePrompt = isImageGen ? text.slice("__image_gen__:".length).trim() : null;
+
+    const userMsg = { role: "user", content: isImageGen ? `Generate an image: ${imagePrompt}` : text };
+    messages.push(userMsg);
+
+    let convId = currentId;
+    if (!convId) {
+      convId = convCounter++;
+      const title = userMsg.content.length > 40 ? userMsg.content.slice(0, 40) + "…" : userMsg.content;
+      conversations.unshift({ id: convId, title, messages: [] });
+      currentId = convId;
+    }
+
+    renderMessages();
+    addTyping();
+
+    let assistantMsg;
+    if (isImageGen && HF_API_KEY !== 'hf_FAKE_KEY_FOR_DEMO') {
+      assistantMsg = await callImageGen(imagePrompt);
+    } else if (HF_API_KEY !== 'hf_FAKE_KEY_FOR_DEMO') {
+      assistantMsg = await callLLM(messages);
+    } else {
+      // Demo mode with mock responses
+      assistantMsg = await mockResponse(userMsg.content, isImageGen ? imagePrompt : null);
+    }
+
+    removeTyping();
+    messages.push(assistantMsg);
+    const conv = conversations.find(c => c.id === convId);
+    if (conv) conv.messages = [...messages];
+    isLoading = false;
+    renderMessages();
+    renderConversations();
+  }
+
+  // Mock response for demo mode
+  async function mockResponse(userContent, imagePrompt) {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        if (imagePrompt) {
+          // Mock image response
+          const mockImage = `https://picsum.photos/400/300?random=${Date.now()}`;
+          resolve({ 
+            role: "assistant", 
+            content: "Here's your generated image (demo mode):", 
+            imageUrl: mockImage, 
+            imagePrompt: imagePrompt 
+          });
+        } else {
+          // Mock text responses based on common queries
+          let response = "Thanks for your question! ";
+          
+          if (userContent.toLowerCase().includes('quantum')) {
+            response += "Quantum computing uses qubits that can exist in multiple states simultaneously (superposition) and be linked together (entanglement), enabling massive parallel computation.";
+          } else if (userContent.toLowerCase().includes('python') || userContent.toLowerCase().includes('reverse')) {
+            response += "```python\ndef reverse_string(s):\n    return s[::-1]\n\n# Example\nprint(reverse_string('hello'))  # Output: 'olleh'\n```";
+          } else if (userContent.toLowerCase().includes('bio') || userContent.toLowerCase().includes('professional')) {
+            response += "Here's a professional bio template:\n\n'Experienced [Your Role] with [X] years in [Industry]. Passionate about [Key Interest]. Proven track record in [Key Achievement].'";
+          } else if (userContent.toLowerCase().includes('ai') || userContent.toLowerCase().includes('breakthrough')) {
+            response += "Recent AI breakthroughs include multimodal models, improved reasoning capabilities, and more efficient training methods.";
+          } else {
+            response += "I'm a demo AI. Get a Hugging Face API key from https://huggingface.co/settings/tokens to enable real AI responses!";
+          }
+          
+          resolve({ role: "assistant", content: response });
+        }
+      }, 1500 + Math.random() * 1000);
+    });
+  }
+
+  // Real LLM API call
+  async function callLLM(msgs) {
+    const systemPrompt = "You are Axiom, a knowledgeable and helpful AI assistant. You are friendly, concise, and accurate. Format responses clearly using markdown.";
+    const fullPrompt = `${systemPrompt}\n\n${msgs.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n')}\n\nAssistant:`;
+    
+    try {
+      const res = await fetch("https://api-inference.huggingface.co/models/microsoft/DialoGPT-large", {
+        method: "POST",
+        headers: { 
+          "Authorization": `Bearer ${HF_API_KEY}`, 
+          "Content-Type": "application/json" 
+        },
+        body: JSON.stringify({ 
+          inputs: fullPrompt, 
+          parameters: { 
+            max_new_tokens: 300,
+            temperature: 0.7,
+            return_full_text: false
+          } 
+        })
+      });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      
+      const data = await res.json();
+      const text = data[0]?.generated_text?.trim() || "Sorry, I couldn't generate a response.";
+      return { role: "assistant", content: text };
+    } catch (err) {
+      console.error('LLM API Error:', err);
+      return { 
+        role: "assistant", 
+        content: `Error: ${err.message}\n\n**To fix this:**\n1. Get a free Hugging Face API key at https://huggingface.co/settings/tokens\n2. Replace \`hf_FAKE_KEY_FOR_DEMO\` with your real key\n3. Refresh the page` 
+      };
+    }
+  }
+
+  // Real image generation (disabled in demo)
+  async function callImageGen(prompt) {
+    try {
+      const res = await fetch("https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1", {
+        method: "POST",
+        headers: { 
+          "Authorization": `Bearer ${HF_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ inputs: prompt })
+      });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      return { role: "assistant", content: "", imageUrl: url, imagePrompt: prompt };
+    } catch (err) {
+      console.error('Image Gen Error:', err);
+      return { 
+        role: "assistant", 
+        content: `Image generation failed: ${err.message}\n\nDemo images work without API key!` 
+      };
+    }
+  }
+
+  // ── INPUT ──
+  function autoResize(el) {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 200) + "px";
+    sendBtn.disabled = !el.value.trim() || isLoading;
+  }
+
+  function handleKey(e) {
+    if (e.key === "Enter" && !e.shiftKey) { 
+      e.preventDefault(); 
+      sendMessage(); 
+    }
+  }
+
+  function sendFromSuggestion(btn) {
+    const text = btn.textContent.trim();
+    btn.disabled = true;
+    sendMessage(text);
+  }
+
+  // ── IMAGE MODAL ──
+  function openImgModal() {
+    document.getElementById("img-modal").classList.add("open");
+    setTimeout(() => document.getElementById("img-prompt").focus(), 100);
+  }
+
+  function closeImgModal(e) {
+    const modal = document.getElementById("img-modal");
+    if (e && (e.target === modal || e.target.closest('.modal-header button'))) {
+      modal.classList.remove("open");
+      document.getElementById("img-prompt").value = "";
+    }
+  }
+
+  function imgPromptKey(e) {
+    if (e.key === "Enter" && !e.shiftKey) { 
+      e.preventDefault(); 
+      generateImage(); 
+    }
+  }
+
+  function generateImage() {
+    const prompt = document.getElementById("img-prompt").value.trim();
+    if (!prompt) return;
+    closeImgModal();
+    sendMessage(`__image_gen__:${prompt}`);
+  }
+
+  // ── TOAST ──
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 2500);
+  }
+
+  // Initialize
+  renderConversations();
+</script>
+</body>
+</html>
